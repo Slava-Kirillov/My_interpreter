@@ -1,6 +1,7 @@
 #include <iostream>
-#include <cstdio>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 
 using namespace std;
 
@@ -9,9 +10,8 @@ enum type_of_lex {
     LEX_AND, LEX_BEGIN, LEX_BOOL, LEX_DO, LEX_ELSE, LEX_END, LEX_IF, LEX_FALSE, LEX_INT, /*9*/
     LEX_NOT, LEX_OR, LEX_PROGRAM, LEX_READ, LEX_THEN, LEX_TRUE, LEX_VAR, LEX_WHILE, LEX_WRITE, /*18*/
     LEX_STRING, /*19*/
-    LEX_BREAK, /*20*/
-    LEX_FIN, /*21*/
-    LEX_SEMICOLON, LEX_COMMA, LEX_COLON, LEX_ASSIGN, LEX_LPAREN, LEX_RPAREN, LEX_EQ, LEX_LSS, /*29*/
+    LEX_FIN, /*20*/
+    LEX_SEMICOLON, LEX_COMMA, LEX_COLON, LEX_ASSIGN, LEX_LPAREN, LEX_RPAREN, LEX_EQ, LEX_LSS, /*28*/
     LEX_GTR, LEX_PLUS, LEX_MINUS, LEX_TIMES, LEX_SLASH, LEX_LEQ, LEX_NEQ, LEX_GEQ, /*37*/
     LEX_PERCENT, /*38*/
     LEX_NUM, /*39*/
@@ -19,15 +19,18 @@ enum type_of_lex {
     POLIZ_LABEL, /*41*/
     POLIZ_ADDRESS, /*42*/
     POLIZ_GO, /*43*/
-    POLIZ_FGO /*44*/
+    POLIZ_FGO, /*44*/
+    LEX_REPEAT, /*45*/
+    LEX_UNTIL  /*46*/
 };
 
-/////////////////////////  Класс Lex  //////////////////////////
+/////////////////////////  Lex  //////////////////////////
 
 class Lex {
     type_of_lex t_lex;
     int v_lex;
 public:
+
     Lex(type_of_lex t = LEX_NULL, int v = 0) : t_lex(t), v_lex(v) {}
 
     type_of_lex get_type() { return t_lex; }
@@ -40,7 +43,7 @@ public:
     }
 };
 
-/////////////////////  Класс Ident  ////////////////////////////
+/////////////////////  Ident  ////////////////////////////
 
 class Ident {
     char *name;
@@ -78,7 +81,7 @@ public:
     void put_value(int v) { value = v; }
 };
 
-//////////////////////  Класс Tabl_ident  ///////////////////////
+//////////////////////  Tabl_ident  ///////////////////////
 
 class Tabl_ident {
     Ident *p;
@@ -142,7 +145,7 @@ T Stack<T, max_size>::pop() {
         throw "stack_is_empty";
 }
 
-/////////////////////////  Класс Poliz  /////////////////////////////
+/////////////////////////  Poliz  /////////////////////////////
 
 class Poliz {
     Lex *p;
@@ -186,7 +189,7 @@ public:
 
 Tabl_ident TID(100);
 
-/////////////////////  Класс Scanner  //////////////////////////////
+/////////////////////  Scanner  //////////////////////////////
 
 class Scanner {
     enum state {
@@ -237,25 +240,22 @@ public:
     Lex get_lex();
 };
 
-char *
-        Scanner::TW[] = {"", "and", "begin", "bool", "do", "else", "end", "if", "false", "int", "not", "or", "program",
-                         "read", "then", "true", "var", "while", "write", NULL};
+//repeat,until
+char *Scanner::TW[] = {"", "and", "begin", "bool", "do", "else", "end", "if", "false", "int", "not", "or", "program",
+                       "read", "then", "true", "var", "while", "write", "repeat", "until", "string", NULL};
 
-type_of_lex
-        Scanner::words[] = {LEX_NULL, LEX_AND, LEX_BEGIN, LEX_BOOL, LEX_DO, LEX_ELSE, LEX_END, LEX_IF, LEX_FALSE,
-                            LEX_INT,
-                            LEX_NOT, LEX_OR, LEX_PROGRAM, LEX_READ, LEX_THEN, LEX_TRUE, LEX_VAR, LEX_WHILE, LEX_WRITE,
-                            LEX_NULL};
+type_of_lex Scanner::words[] = {LEX_NULL, LEX_AND, LEX_BEGIN, LEX_BOOL, LEX_DO, LEX_ELSE, LEX_END, LEX_IF, LEX_FALSE,
+                                LEX_INT,
+                                LEX_NOT, LEX_OR, LEX_PROGRAM, LEX_READ, LEX_THEN, LEX_TRUE, LEX_VAR, LEX_WHILE, LEX_WRITE,
+                                LEX_REPEAT, LEX_UNTIL, LEX_STRING, LEX_NULL};
 
-char *
-        Scanner::TD[] = {"", "@", ";", ",", ":", ":=", "(", ")", "=", "<", ">", "+", "-", "*", "/", "<=", "!=", ">=",
-                         NULL};
+char *Scanner::TD[] = {"", "@", ";", ",", ":", ":=", "(", ")", "=", "<", ">", "+", "-", "*", "/", "<=", "!=", ">=", "%",
+                       NULL};
 
-type_of_lex
-        Scanner::dlms[] = {LEX_NULL, LEX_FIN, LEX_SEMICOLON, LEX_COMMA, LEX_COLON, LEX_ASSIGN, LEX_LPAREN, LEX_RPAREN,
-                           LEX_EQ,
-                           LEX_LSS, LEX_GTR, LEX_PLUS, LEX_MINUS, LEX_TIMES, LEX_SLASH, LEX_LEQ, LEX_NEQ, LEX_GEQ,
-                           LEX_NULL};
+type_of_lex Scanner::dlms[] = {LEX_NULL, LEX_FIN, LEX_SEMICOLON, LEX_COMMA, LEX_COLON, LEX_ASSIGN, LEX_LPAREN, LEX_RPAREN,
+                               LEX_EQ,
+                               LEX_LSS, LEX_GTR, LEX_PLUS, LEX_MINUS, LEX_TIMES, LEX_SLASH, LEX_LEQ, LEX_NEQ, LEX_GEQ, LEX_PERCENT,
+                               LEX_NULL};
 
 Lex Scanner::get_lex() {
     int d, j;
@@ -353,7 +353,7 @@ Lex Scanner::get_lex() {
     } while (true);
 }
 
-///////////////////////////  Класс Parser  /////////////////////////////////
+///////////////////////////  Parser  /////////////////////////////////
 
 class Parser {
     Lex curr_lex;
@@ -490,49 +490,75 @@ void Parser::B() {
         throw curr_lex;
 }
 
+
 void Parser::S() {
     int pl0, pl1, pl2, pl3;
 
+    //if (!E) goto pl2; S1 goto l3; pl2: S2; pl3:
     if (c_type == LEX_IF) {
         gl();
         E();
-        eq_bool();
+        eq_bool(); //��������� bool �� ��������� ������� � �����
         pl2 = prog.get_free();
-        prog.blank();
-        prog.put_lex(Lex(POLIZ_FGO));
+        prog.blank(); // ��������� �� ����� ����� pl2
+        prog.put_lex(Lex(POLIZ_FGO)); // ������� �� ���
         if (c_type == LEX_THEN) {
             gl();
             S();
             pl3 = prog.get_free();
-            prog.blank();
-            prog.put_lex(Lex(POLIZ_GO));
-            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl2);
+            prog.blank(); // ��������� �� ����� ����� pl3
+            prog.put_lex(Lex(POLIZ_GO)); // �������
+            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl2); // ����� p12
             if (c_type == LEX_ELSE) {
                 gl();
                 S();
-                prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl3);
+                prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl3); // ����� p13
             } else
                 throw curr_lex;
         } else
             throw curr_lex;
     }//end if
+
+        // pl0: if (!E) goto pl1; S; goto pl0; pl1:
     else if (c_type == LEX_WHILE) {
-        pl0 = prog.get_free();
+        pl0 = prog.get_free(); // ����� pl0
         gl();
         E();
         eq_bool();
         pl1 = prog.get_free();
-        prog.blank();
-        prog.put_lex(Lex(POLIZ_FGO));
+        prog.blank(); // ��������� �� ����� pl1
+        prog.put_lex(Lex(POLIZ_FGO)); // ������� �� ���
         if (c_type == LEX_DO) {
             gl();
             S();
             prog.put_lex(Lex(POLIZ_LABEL, pl0));
             prog.put_lex(Lex(POLIZ_GO));
-            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl1);
+            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl1); // ����� pl1
         } else
             throw curr_lex;
-    }//end while
+    }//end while1
+
+        // repeat S{;S} until E  // ���� E �� ������ ������ true
+        // pl0: S if (!E) goto pl0
+    else if (c_type == LEX_REPEAT) {
+        pl0 = prog.get_free();     // ����� ������ ���������� �����
+        gl();                    // ���� �������
+        S();                     //
+        while (c_type == LEX_SEMICOLON) {
+            gl();
+            S();
+        }
+        if (c_type == LEX_UNTIL) {
+            gl();
+            E();
+            eq_bool();    //��������� bool �� ��������� ������� � �����
+            prog.put_lex(Lex(POLIZ_LABEL, pl0)); // ����� � ����� pl0
+            prog.put_lex(Lex(POLIZ_FGO)); // ������� �� ���
+        } else
+            throw curr_lex;
+    } // end of repeat
+///////////////////////////////////////////////////////////////////////////////////////////
+
     else if (c_type == LEX_READ) {
         gl();
         if (c_type == LEX_LPAREN) {
@@ -603,7 +629,7 @@ void Parser::E1() {
 
 void Parser::T() {
     F();
-    while (c_type == LEX_TIMES || c_type == LEX_SLASH || c_type == LEX_AND) {
+    while (c_type == LEX_TIMES || c_type == LEX_SLASH || c_type == LEX_AND || c_type == LEX_PERCENT) {
         st_lex.push(c_type);
         gl();
         F();
@@ -671,7 +697,7 @@ void Parser::check_op() {
     t2 = st_lex.pop();
     op = st_lex.pop();
     t1 = st_lex.pop();
-    if (op == LEX_PLUS || op == LEX_MINUS || op == LEX_TIMES || op == LEX_SLASH)
+    if (op == LEX_PLUS || op == LEX_MINUS || op == LEX_TIMES || op == LEX_SLASH || op == LEX_PERCENT)
         r = LEX_INT;
     if (op == LEX_OR || op == LEX_AND)
         t = LEX_BOOL;
@@ -748,6 +774,11 @@ void Executer::execute(Poliz &prog) {
             case POLIZ_GO:
                 index = args.pop() - 1;
                 break;
+                /////////////////////////////////////////////////////////
+//      case LEX_TO:
+//        index = args.pop()-2;
+//        break;
+                ////////////////////////////////////////////////////////
             case POLIZ_FGO:
                 i = args.pop();
                 if (!args.pop()) index = i - 1;
@@ -759,7 +790,7 @@ void Executer::execute(Poliz &prog) {
                 int k;
                 i = args.pop();
                 if (TID[i].get_type() == LEX_INT) {
-                    cout << "Input int value for" << TID[i].get_name() << endl;
+                    cout << "Input int value for " << TID[i].get_name() << endl;
                     cin >> k;
                 } else {
                     char j[20];
@@ -791,8 +822,15 @@ void Executer::execute(Poliz &prog) {
                 break;
             case LEX_SLASH:
                 i = args.pop();
-                if (!i) {
+                if (i) {
                     args.push(args.pop() / i);
+                    break;
+                } else
+                    throw "POLIZ:divide by zero";
+            case LEX_PERCENT:
+                i = args.pop();
+                if (i){
+                    args.push(args.pop() % i);
                     break;
                 } else
                     throw "POLIZ:divide by zero";
@@ -849,7 +887,7 @@ void Interpretator::interpretation() {
 
 int main() {
     try {
-        Interpretator I("program.txt");
+        Interpretator I("/home/macbook/CLionProjects/My_interpreter/program.txt");
         I.interpretation();
         return 0;
     }
