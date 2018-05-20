@@ -21,24 +21,56 @@ enum type_of_lex {
     POLIZ_GO, /*43*/
     POLIZ_FGO, /*44*/
     LEX_REPEAT, /*45*/
-    LEX_UNTIL  /*46*/
+    LEX_UNTIL,  /*46*/
+    LEX_QUOTES /*47*/
+};
+
+class lex_val{
+    int i_val;
+    string s_val;
+public:
+
+    lex_val(int i, string s){
+        i_val = i;
+        s_val = s;
+    }
+
+    int get_i(){
+        return i_val;
+    }
+
+    string get_s(){
+        return s_val;
+    }
+
+    void set_i(int i){
+        i_val = i;
+    }
+
+    void set_s(string s){
+        s_val = s;
+    }
 };
 
 /////////////////////////  Lex  //////////////////////////
 
 class Lex {
     type_of_lex t_lex;
-    int v_lex;
+    lex_val v_lex;
 public:
 
     Lex(type_of_lex t = LEX_NULL, int v = 0) : t_lex(t), v_lex(v) {}
 
     type_of_lex get_type() { return t_lex; }
 
-    int get_value() { return v_lex; }
+    lex_val get_value() { return v_lex; }
 
     friend ostream &operator<<(ostream &s, Lex l) {
-        s << '(' << l.t_lex << ',' << l.v_lex << ");";
+        if (l.t_lex == LEX_STRING) {
+            s << '(' << l.t_lex << ',' << l.v_lex.get_s() << ");";
+        } else{
+            s << '(' << l.t_lex << ',' << l.v_lex.get_i() << ");";
+        }
         return s;
     }
 };
@@ -188,12 +220,13 @@ public:
 ////////////////////////////////////////////////////////////////////
 
 Tabl_ident TID(100);
+string TS[100];
 
 /////////////////////  Scanner  //////////////////////////////
 
 class Scanner {
     enum state {
-        H, IDENT, NUMB, COM, ALE, DELIM, NEQ
+        H, IDENT, NUMB, COM, ALE, DELIM, NEQ, STRING
     };
     static char *TW[];
     static type_of_lex words[];
@@ -249,12 +282,12 @@ type_of_lex Scanner::words[] = {LEX_NULL, LEX_AND, LEX_BEGIN, LEX_BOOL, LEX_DO, 
                                 LEX_NOT, LEX_OR, LEX_PROGRAM, LEX_READ, LEX_THEN, LEX_TRUE, LEX_VAR, LEX_WHILE, LEX_WRITE,
                                 LEX_REPEAT, LEX_UNTIL, LEX_STRING, LEX_NULL};
 
-char *Scanner::TD[] = {"", "@", ";", ",", ":", ":=", "(", ")", "=", "<", ">", "+", "-", "*", "/", "<=", "!=", ">=", "%",
+char *Scanner::TD[] = {"", "@", ";", ",", ":", ":=", "(", ")", "=", "<", ">", "+", "-", "*", "/", "<=", "!=", ">=", "%","\"",
                        NULL};
 
 type_of_lex Scanner::dlms[] = {LEX_NULL, LEX_FIN, LEX_SEMICOLON, LEX_COMMA, LEX_COLON, LEX_ASSIGN, LEX_LPAREN, LEX_RPAREN,
                                LEX_EQ,
-                               LEX_LSS, LEX_GTR, LEX_PLUS, LEX_MINUS, LEX_TIMES, LEX_SLASH, LEX_LEQ, LEX_NEQ, LEX_GEQ, LEX_PERCENT,
+                               LEX_LSS, LEX_GTR, LEX_PLUS, LEX_MINUS, LEX_TIMES, LEX_SLASH, LEX_LEQ, LEX_NEQ, LEX_GEQ, LEX_PERCENT, LEX_QUOTES,
                                LEX_NULL};
 
 Lex Scanner::get_lex() {
@@ -266,6 +299,12 @@ Lex Scanner::get_lex() {
             case H:
                 if (c == ' ' || c == '\n' || c == '\r' || c == '\t')
                     gc();
+                else if (c == '\"') {
+                    clear();
+                    add();
+                    gc();
+                    CS = STRING;
+                }
                 else if (isalpha(c)) {
                     clear();
                     add();
@@ -349,6 +388,17 @@ Lex Scanner::get_lex() {
                 } else
                     throw c;
                 break;
+            case STRING:
+                if (isalpha(c) || isdigit(c)) {
+                    add();
+                    gc();
+                } else if (c == '\"'){
+                    add();
+                    j = look(buf, TD);
+                    TS[j] = buf;
+                    return Lex(LEX_STRING, j);
+                }
+
         }//end switch
     } while (true);
 }
@@ -469,6 +519,9 @@ void Parser::D() {
             } else if (c_type == LEX_BOOL) {
                 dec(LEX_BOOL);
                 gl();
+            }else if (c_type == LEX_STRING){
+                dec(LEX_STRING);
+                gl();
             } else throw curr_lex;
         }
     }
@@ -498,21 +551,21 @@ void Parser::S() {
     if (c_type == LEX_IF) {
         gl();
         E();
-        eq_bool(); //��������� bool �� ��������� ������� � �����
+        eq_bool();
         pl2 = prog.get_free();
-        prog.blank(); // ��������� �� ����� ����� pl2
-        prog.put_lex(Lex(POLIZ_FGO)); // ������� �� ���
+        prog.blank();
+        prog.put_lex(Lex(POLIZ_FGO));
         if (c_type == LEX_THEN) {
             gl();
             S();
             pl3 = prog.get_free();
-            prog.blank(); // ��������� �� ����� ����� pl3
-            prog.put_lex(Lex(POLIZ_GO)); // �������
-            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl2); // ����� p12
+            prog.blank();
+            prog.put_lex(Lex(POLIZ_GO));
+            prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl2);
             if (c_type == LEX_ELSE) {
                 gl();
                 S();
-                prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl3); // ����� p13
+                prog.put_lex(Lex(POLIZ_LABEL, prog.get_free()), pl3);
             } else
                 throw curr_lex;
         } else
@@ -538,12 +591,12 @@ void Parser::S() {
             throw curr_lex;
     }//end while1
 
-        // repeat S{;S} until E  // ���� E �� ������ ������ true
+        // repeat S{;S} until E
         // pl0: S if (!E) goto pl0
     else if (c_type == LEX_REPEAT) {
-        pl0 = prog.get_free();     // ����� ������ ���������� �����
-        gl();                    // ���� �������
-        S();                     //
+        pl0 = prog.get_free();
+        gl();
+        S();
         while (c_type == LEX_SEMICOLON) {
             gl();
             S();
@@ -551,9 +604,9 @@ void Parser::S() {
         if (c_type == LEX_UNTIL) {
             gl();
             E();
-            eq_bool();    //��������� bool �� ��������� ������� � �����
-            prog.put_lex(Lex(POLIZ_LABEL, pl0)); // ����� � ����� pl0
-            prog.put_lex(Lex(POLIZ_FGO)); // ������� �� ���
+            eq_bool();
+            prog.put_lex(Lex(POLIZ_LABEL, pl0));
+            prog.put_lex(Lex(POLIZ_FGO));
         } else
             throw curr_lex;
     } // end of repeat
