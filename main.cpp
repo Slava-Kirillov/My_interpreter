@@ -30,6 +30,10 @@ class lex_val{
     string s_val;
 public:
 
+    lex_val(){
+        i_val = 0;
+    }
+
     lex_val(int i, string s){
         i_val = i;
         s_val = s;
@@ -59,7 +63,7 @@ class Lex {
     lex_val v_lex;
 public:
 
-    Lex(type_of_lex t = LEX_NULL, int v = 0) : t_lex(t), v_lex(v) {}
+    Lex(type_of_lex t = LEX_NULL, int v = 0, string s = "") : t_lex(t), v_lex(v, s) {}
 
     type_of_lex get_type() { return t_lex; }
 
@@ -82,7 +86,7 @@ class Ident {
     bool declare;
     type_of_lex type;
     bool assign;
-    int value;
+    lex_val value;
 public:
     Ident() {
         declare = false;
@@ -108,9 +112,9 @@ public:
 
     void put_assign() { assign = true; }
 
-    int get_value() { return value; }
+    lex_val get_value() { return value; }
 
-    void put_value(int v) { value = v; }
+    void put_value(lex_val v) { value = v; }
 };
 
 //////////////////////  Tabl_ident  ///////////////////////
@@ -301,6 +305,10 @@ Lex Scanner::get_lex() {
                     gc();
                 else if (c == '\"') {
                     clear();
+                    gc();
+                    if (c == '\"'){
+                        throw "empty string";
+                    }
                     add();
                     gc();
                     CS = STRING;
@@ -392,13 +400,14 @@ Lex Scanner::get_lex() {
                 if (isalpha(c) || isdigit(c)) {
                     add();
                     gc();
-                } else if (c == '\"'){
-                    add();
-                    j = look(buf, TD);
-                    TS[j] = buf;
-                    return Lex(LEX_STRING, j);
+                } else if (c == '\"') {
+                    gc();
+                } else if (j = look(buf, TW))
+                    return Lex(words[j], j);
+                else {
+                    j = TID.put(buf);
+                    return Lex(LEX_STRING, j, buf);
                 }
-
         }//end switch
     } while (true);
 }
@@ -408,7 +417,7 @@ Lex Scanner::get_lex() {
 class Parser {
     Lex curr_lex;
     type_of_lex c_type;
-    int c_val;
+    lex_val c_val;
     Scanner scan;
     Stack<int, 100> st_int;
     Stack<type_of_lex, 100> st_lex;
@@ -498,14 +507,14 @@ void Parser::D() {
     if (c_type != LEX_ID)
         throw curr_lex;
     else {
-        st_int.push(c_val);
+        st_int.push(c_val.get_i());
         gl();
         while (c_type == LEX_COMMA) {
             gl();
             if (c_type != LEX_ID)
                 throw curr_lex;
             else {
-                st_int.push(c_val);
+                st_int.push(c_val.get_i());
                 gl();
             }
         }
@@ -618,7 +627,7 @@ void Parser::S() {
             gl();
             if (c_type == LEX_ID) {
                 check_id_in_read();
-                prog.put_lex(Lex(POLIZ_ADDRESS, c_val));
+                prog.put_lex(Lex(POLIZ_ADDRESS, c_val.get_i()));
                 gl();
             } else
                 throw curr_lex;
@@ -645,7 +654,7 @@ void Parser::S() {
     }//end write
     else if (c_type == LEX_ID) {
         check_id();
-        prog.put_lex(Lex(POLIZ_ADDRESS, c_val));
+        prog.put_lex(Lex(POLIZ_ADDRESS, c_val.get_i()));
         gl();
         if (c_type == LEX_ASSIGN) {
             gl();
@@ -693,7 +702,11 @@ void Parser::T() {
 void Parser::F() {
     if (c_type == LEX_ID) {
         check_id();
-        prog.put_lex(Lex(LEX_ID, c_val));
+        prog.put_lex(Lex(LEX_ID, c_val.get_i()));
+        gl();
+    } else if (c_type == LEX_STRING) {
+        st_lex.push(LEX_STRING);
+        prog.put_lex(curr_lex);
         gl();
     } else if (c_type == LEX_NUM) {
         st_lex.push(LEX_INT);
@@ -738,26 +751,33 @@ void Parser::dec(type_of_lex type) {
 }
 
 void Parser::check_id() {
-    if (TID[c_val].get_declare())
-        st_lex.push(TID[c_val].get_type());
+    if (TID[c_val.get_i()].get_declare())
+        st_lex.push(TID[c_val.get_i()].get_type());
     else
         throw "not declared";
 }
 
 void Parser::check_op() {
-    type_of_lex t1, t2, op, t = LEX_INT, r = LEX_BOOL;
+    type_of_lex t1, t2, op, t = LEX_INT, r = LEX_BOOL, s = LEX_STRING;
 
     t2 = st_lex.pop();
     op = st_lex.pop();
     t1 = st_lex.pop();
-    if (op == LEX_PLUS || op == LEX_MINUS || op == LEX_TIMES || op == LEX_SLASH || op == LEX_PERCENT)
-        r = LEX_INT;
-    if (op == LEX_OR || op == LEX_AND)
-        t = LEX_BOOL;
-    if (t1 == t2 && t1 == t)
-        st_lex.push(r);
-    else
-        throw "wrong types are in operation";
+    if (t1 == LEX_STRING && t2 == LEX_STRING){
+        if (op != LEX_PLUS){
+            throw "wrong operation for string";
+        }
+        st_lex.push(s);
+    } else {
+        if (op == LEX_PLUS || op == LEX_MINUS || op == LEX_TIMES || op == LEX_SLASH || op == LEX_PERCENT)
+            r = LEX_INT;
+        if (op == LEX_OR || op == LEX_AND)
+            t = LEX_BOOL;
+        if (t1 == t2 && t1 == t)
+            st_lex.push(r);
+        else
+            throw "wrong types are in operation";
+    }
     prog.put_lex(Lex(op));
 }
 
@@ -781,7 +801,7 @@ void Parser::eq_bool() {
 }
 
 void Parser::check_id_in_read() {
-    if (!TID[c_val].get_declare())
+    if (!TID[c_val.get_i()].get_declare())
         throw "not declared";
 }
 
@@ -794,8 +814,9 @@ public:
 };
 
 void Executer::execute(Poliz &prog) {
-    Stack<int, 100> args;
-    int i, j, index = 0, size = prog.get_free();
+    Stack<lex_val, 100> args;
+    int index = 0, size = prog.get_free();
+    lex_val i, j;
     while (index < size) {
         pc_el = prog[index];
         switch (pc_el.get_type()) {
@@ -806,26 +827,27 @@ void Executer::execute(Poliz &prog) {
             case POLIZ_LABEL:
                 args.push(pc_el.get_value());
                 break;
+            case LEX_STRING:
             case LEX_ID:
                 i = pc_el.get_value();
-                if (TID[i].get_assign()) {
-                    args.push(TID[i].get_value());
+                if (TID[i.get_i()].get_assign()) {
+                    args.push(TID[i.get_i()].get_value());
                     break;
                 } else
                     throw "POLIZ: indefinite identifier";
             case LEX_NOT:
-                args.push(!args.pop());
+                args.push(lex_val(!args.pop().get_i(), NULL));
                 break;
             case LEX_OR:
                 i = args.pop();
-                args.push(args.pop() || i);
+                args.push(lex_val((args.pop().get_i() || i.get_i()), ""));
                 break;
             case LEX_AND:
                 i = args.pop();
-                args.push(args.pop() && i);
+                args.push(lex_val((args.pop().get_i() && i.get_i()), ""));
                 break;
             case POLIZ_GO:
-                index = args.pop() - 1;
+                index = args.pop().get_i() - 1;
                 break;
                 /////////////////////////////////////////////////////////
 //      case LEX_TO:
@@ -834,87 +856,94 @@ void Executer::execute(Poliz &prog) {
                 ////////////////////////////////////////////////////////
             case POLIZ_FGO:
                 i = args.pop();
-                if (!args.pop()) index = i - 1;
+                if (!args.pop().get_i()) index = i.get_i() - 1;
                 break;
             case LEX_WRITE:
-                cout << args.pop() << endl;
+                i = args.pop();
+                if (!i.get_s().empty()){
+                    cout << i.get_s() << endl;
+                } else {
+                    cout << i.get_i() << endl;
+                }
                 break;
             case LEX_READ: {
-                int k;
+                int temp;
+                lex_val k;
                 i = args.pop();
-                if (TID[i].get_type() == LEX_INT) {
-                    cout << "Input int value for " << TID[i].get_name() << endl;
-                    cin >> k;
+                if (TID[i.get_i()].get_type() == LEX_INT) {
+                    cout << "Input int value for " << TID[i.get_i()].get_name() << endl;
+                    cin >> temp;
+                    k.set_i(temp);
                 } else {
                     char j[20];
                     rep:
-                    cout << "Input boolean value (true or false) for" << TID[i].get_name() << endl;
+                    cout << "Input boolean value (true or false) for" << TID[i.get_i()].get_name() << endl;
                     cin >> j;
                     if (!strcmp(j, "true"))
-                        k = 1;
+                        k.set_i(1);
                     else if (!strcmp(j, "false"))
-                        k = 0;
+                        k.set_i(0);
                     else {
                         cout << "Error in input:true/false" << endl;
                         goto rep;
                     }
                 }
-                TID[i].put_value(k);
-                TID[i].put_assign();
+                TID[i.get_i()].put_value(k);
+                TID[i.get_i()].put_assign();
                 break;
             }
             case LEX_PLUS:
-                args.push(args.pop() + args.pop());
+                args.push(lex_val((args.pop().get_i() + args.pop().get_i()), NULL));
                 break;
             case LEX_TIMES:
-                args.push(args.pop() * args.pop());
+                args.push(lex_val((args.pop().get_i() * args.pop().get_i()), NULL));
                 break;
             case LEX_MINUS:
                 i = args.pop();
-                args.push(args.pop() - i);
+                args.push(lex_val((args.pop().get_i() - i.get_i()), NULL));
                 break;
             case LEX_SLASH:
                 i = args.pop();
-                if (i) {
-                    args.push(args.pop() / i);
+                if (i.get_i()) {
+                    args.push(lex_val((args.pop().get_i() / i.get_i()), NULL));
                     break;
                 } else
                     throw "POLIZ:divide by zero";
             case LEX_PERCENT:
                 i = args.pop();
-                if (i){
-                    args.push(args.pop() % i);
+                if (i.get_i()){
+                    args.push(lex_val((args.pop().get_i() % i.get_i()), NULL));
                     break;
                 } else
                     throw "POLIZ:divide by zero";
             case LEX_EQ:
-                args.push(args.pop() == args.pop());
+                args.push(lex_val((args.pop().get_i() == args.pop().get_i()), NULL));
                 break;
             case LEX_LSS:
                 i = args.pop();
-                args.push(args.pop() < i);
+                args.push(lex_val((args.pop().get_i() < i.get_i()), NULL));
                 break;
             case LEX_GTR:
                 i = args.pop();
-                args.push(args.pop() > i);
+                args.push(lex_val((args.pop().get_i() > i.get_i()), NULL));
                 break;
             case LEX_LEQ:
                 i = args.pop();
-                args.push(args.pop() <= i);
+                args.push(lex_val((args.pop().get_i() <= i.get_i()), NULL));
                 break;
             case LEX_GEQ:
                 i = args.pop();
-                args.push(args.pop() >= i);
+                args.push(lex_val((args.pop().get_i() >= i.get_i()), NULL));
                 break;
             case LEX_NEQ:
                 i = args.pop();
-                args.push(args.pop() != i);
+                args.push(lex_val((args.pop().get_i() != i.get_i()), NULL));
                 break;
             case LEX_ASSIGN:
                 i = args.pop();
                 j = args.pop();
-                TID[j].put_value(i);
-                TID[j].put_assign();
+                TID[j.get_i()].put_value(i);
+                TID[j.get_i()].put_assign();
                 break;
             default:
                 throw "POLIZ: unexpected elem";
@@ -940,7 +969,7 @@ void Interpretator::interpretation() {
 
 int main() {
     try {
-        Interpretator I("/home/macbook/CLionProjects/My_interpreter/program.txt");
+        Interpretator I("/home/vkirillov/CLionProjects/My_interpreter/program.txt");
         I.interpretation();
         return 0;
     }

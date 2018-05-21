@@ -1,0 +1,10 @@
+program
+var a,b,c: int, d,e: string;
+begin
+    {a := 10;
+    b := 6;
+    c := a + b;}
+    d := "abc";
+    e := d + "123";
+    write(e)
+end@
