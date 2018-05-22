@@ -406,12 +406,13 @@ Lex Scanner::get_lex() {
                 if (isalpha(c) || isdigit(c)) {
                     add();
                     gc();
-                } else if (c == '\"') {
+                } else if (c != '\"'){
+                    throw "wrong string";
+                } else if (j = look(buf, TW)) {
                     gc();
-                } else if (j = look(buf, TW))
                     return Lex(words[j], j);
-                else {
-//                    j = TID.put(buf);
+                } else {
+                    gc();
                     return Lex(LEX_STRING, 0, buf);
                 }
         }//end switch
@@ -847,7 +848,7 @@ void Executer::execute(Poliz &prog) {
                 } else
                     throw "POLIZ: indefinite identifier";
             case LEX_NOT:
-                args.push(lex_val(!args.pop().get_i(), NULL));
+                args.push(lex_val(!args.pop().get_i(), ""));
                 break;
             case LEX_OR:
                 i = args.pop();
@@ -860,11 +861,6 @@ void Executer::execute(Poliz &prog) {
             case POLIZ_GO:
                 index = args.pop().get_i() - 1;
                 break;
-                /////////////////////////////////////////////////////////
-//      case LEX_TO:
-//        index = args.pop()-2;
-//        break;
-                ////////////////////////////////////////////////////////
             case POLIZ_FGO:
                 i = args.pop();
                 if (!args.pop().get_i()) index = i.get_i() - 1;
