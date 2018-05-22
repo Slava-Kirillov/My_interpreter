@@ -52,6 +52,7 @@ public:
     }
 
     void set_s(string s){
+        s_val.clear();
         s_val = s;
     }
 };
@@ -115,6 +116,11 @@ public:
     lex_val get_value() { return value; }
 
     void put_value(lex_val v) { value = v; }
+
+    void put_string(lex_val v1, lex_val v2) {
+        value.set_s(v1.get_s());
+        value.set_i(v2.get_i());
+    }
 };
 
 //////////////////////  Tabl_ident  ///////////////////////
@@ -405,8 +411,8 @@ Lex Scanner::get_lex() {
                 } else if (j = look(buf, TW))
                     return Lex(words[j], j);
                 else {
-                    j = TID.put(buf);
-                    return Lex(LEX_STRING, j, buf);
+//                    j = TID.put(buf);
+                    return Lex(LEX_STRING, 0, buf);
                 }
         }//end switch
     } while (true);
@@ -433,6 +439,8 @@ class Parser {
     void S();
 
     void E();
+
+    void X();
 
     void E1();
 
@@ -828,6 +836,9 @@ void Executer::execute(Poliz &prog) {
                 args.push(pc_el.get_value());
                 break;
             case LEX_STRING:
+                i = pc_el.get_value();
+                args.push(i);
+                break;
             case LEX_ID:
                 i = pc_el.get_value();
                 if (TID[i.get_i()].get_assign()) {
@@ -893,56 +904,66 @@ void Executer::execute(Poliz &prog) {
                 break;
             }
             case LEX_PLUS:
-                args.push(lex_val((args.pop().get_i() + args.pop().get_i()), NULL));
+                i = args.pop();
+                j = args.pop();
+                if (i.get_s().empty() && j.get_s().empty()) {
+                    args.push(lex_val((i.get_i() + j.get_i()), ""));
+                } else {
+                    args.push(lex_val(0, j.get_s().append(i.get_s())));
+                }
                 break;
             case LEX_TIMES:
-                args.push(lex_val((args.pop().get_i() * args.pop().get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() * args.pop().get_i()), ""));
                 break;
             case LEX_MINUS:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() - i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() - i.get_i()), ""));
                 break;
             case LEX_SLASH:
                 i = args.pop();
                 if (i.get_i()) {
-                    args.push(lex_val((args.pop().get_i() / i.get_i()), NULL));
+                    args.push(lex_val((args.pop().get_i() / i.get_i()), ""));
                     break;
                 } else
                     throw "POLIZ:divide by zero";
             case LEX_PERCENT:
                 i = args.pop();
                 if (i.get_i()){
-                    args.push(lex_val((args.pop().get_i() % i.get_i()), NULL));
+                    args.push(lex_val((args.pop().get_i() % i.get_i()), ""));
                     break;
                 } else
                     throw "POLIZ:divide by zero";
             case LEX_EQ:
-                args.push(lex_val((args.pop().get_i() == args.pop().get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() == args.pop().get_i()), ""));
                 break;
             case LEX_LSS:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() < i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() < i.get_i()), ""));
                 break;
             case LEX_GTR:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() > i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() > i.get_i()), ""));
                 break;
             case LEX_LEQ:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() <= i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() <= i.get_i()), ""));
                 break;
             case LEX_GEQ:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() >= i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() >= i.get_i()), ""));
                 break;
             case LEX_NEQ:
                 i = args.pop();
-                args.push(lex_val((args.pop().get_i() != i.get_i()), NULL));
+                args.push(lex_val((args.pop().get_i() != i.get_i()), ""));
                 break;
             case LEX_ASSIGN:
                 i = args.pop();
                 j = args.pop();
-                TID[j.get_i()].put_value(i);
+                if (i.get_s().empty()) {
+                    TID[j.get_i()].put_value(i);
+                } else {
+                    TID[j.get_i()].put_string(i, j);
+                }
                 TID[j.get_i()].put_assign();
                 break;
             default:
@@ -969,7 +990,7 @@ void Interpretator::interpretation() {
 
 int main() {
     try {
-        Interpretator I("/home/vkirillov/CLionProjects/My_interpreter/program.txt");
+        Interpretator I("/home/macbook/CLionProjects/My_interpreter/program.txt");
         I.interpretation();
         return 0;
     }

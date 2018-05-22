@@ -1,10 +1,24 @@
 program
-var a,b,c: int, d,e: string;
+var a,b,c:int, d,e: string;
 begin
-    {a := 10;
-    b := 6;
-    c := a + b;}
+    a := 1;
+    b := 2;
+    c := 1 + 2;
     d := "abc";
     e := d + "123";
-    write(e)
+    if () then write(true) else write(false);
+    write(c)
+end@
+
+program
+var a: string, b: int;
+begin
+  a := "1";
+  write(a);
+  b := 0;
+  repeat
+    a := a + "1";
+    b := b + 1;
+    write(a)
+  until (b>=10)
 end@
